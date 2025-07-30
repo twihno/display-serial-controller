@@ -1,0 +1,19 @@
+[package]
+name = "display-serial-controller"
+version = "0.1.0"
+edition = "2024"
+authors = ["Thomas Schuster <twihno@gmail.com>"]
+description = "A small application to control displays via a serial interface."
+license = "Mozilla Public License 2.0 (MPL-2.0)"
+
+[dependencies]
+clap = { version = "4.5.42", features = [
+  "color",
+  "error-context",
+  "help",
+  "std",
+  "suggestions",
+  "usage",
+  "derive",
+] }
+serialport = { version = "4.7.2", features = ["libudev"] }
