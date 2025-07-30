@@ -1,5 +1,8 @@
+use serialport::SerialPort;
+
 use crate::common;
 
+#[derive(Debug, Clone)]
 pub struct RawRequestPackage {
     header: u8,
     monitor_id: u8,
@@ -120,7 +123,7 @@ impl SetRequestFunction {
     }
 
     #[must_use]
-    pub fn get_data(&self) -> Option<Vec<u8>> {
+    fn get_payload_data(&self) -> Option<Vec<u8>> {
         match self {
             SetRequestFunction::PowerState(state) => Some(vec![match state {
                 common::PowerState::Off => 0x01,
@@ -149,11 +152,17 @@ pub struct GetRequest {
     pub function: GetRequestFunction,
 }
 
-pub fn set(monitor_id: u8, function: SetRequestFunction) -> RawRequestPackage {
+pub fn set<T: SerialPort>(
+    monitor_id: u8,
+    function: SetRequestFunction,
+    port: &mut T,
+) -> Result< {
     let command_code = function.get_command_code();
-    let data = function.get_data();
+    let data = function.get_payload_data();
 
-    RawRequestPackage::new(monitor_id, command_code, &data)
+    let request = RawRequestPackage::new(monitor_id, command_code, &data);
+    port.write_all(&Vec::<u8>::from(request))
+        .expect("Failed to write to port");
 }
 
 impl From<RawRequestPackage> for Vec<u8> {
@@ -219,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn test_example_set_power_state_deep_sleep() {
+    fn test_set_power_state_off() {
         let package = set(1, SetRequestFunction::PowerState(common::PowerState::Off));
         assert_eq!(package.header, 0xa6);
         assert_eq!(package.monitor_id, 1);
@@ -230,5 +239,19 @@ mod tests {
         assert_eq!(package.data_control, 0x01);
         assert_eq!(package.data.unwrap(), vec![0x18, 0x01]);
         assert_eq!(package.checksum, 0xbb);
+    }
+
+    #[test]
+    fn test_set_power_state_on() {
+        let package = set(1, SetRequestFunction::PowerState(common::PowerState::On));
+        assert_eq!(package.header, 0xa6);
+        assert_eq!(package.monitor_id, 1);
+        assert_eq!(package.category, 0x00);
+        assert_eq!(package.code0, 0x00);
+        assert_eq!(package.code1, 0x00);
+        assert_eq!(package.length, 0x04);
+        assert_eq!(package.data_control, 0x01);
+        assert_eq!(package.data.unwrap(), vec![0x18, 0x02]);
+        assert_eq!(package.checksum, 0xb8);
     }
 }
